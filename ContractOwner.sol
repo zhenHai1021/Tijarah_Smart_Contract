@@ -10,6 +10,7 @@ contract SCMOwner {
     uint256 private totalSuppliersCounter;
     uint256 private totalManufacturersCounter;
     uint256 private totalDistributorsCounter;
+    uint256 private totalRetailersCounter;
 
     constructor() {
         SCMowner = payable(msg.sender);
@@ -40,9 +41,29 @@ contract SCMOwner {
         uint256 indexed _supplierID,
         VerifiedSupplier verifiedSuppliers
     );
-    event RegisterDistributor(address indexed _distributor, Distributor distributor);
-    event UpdateDistributorDetails(address indexed _distributor, uint256 indexed _distributorIndex);
-    event VerifyDistributor(address indexed _distributor, uint256 _distributorID, VerifiedDistributor VD);
+    event RegisterDistributor(
+        address indexed _distributor,
+        Distributor distributor
+    );
+    event UpdateDistributorDetails(
+        address indexed _distributor,
+        uint256 indexed _distributorIndex
+    );
+    event VerifyDistributor(
+        address indexed _distributor,
+        uint256 _distributorID,
+        VerifiedDistributor VD
+    );
+    event RegisterRetailer(address indexed _retailer, Retailer retailer);
+    event UpdateRetailerDetails(
+        address indexed _retailer,
+        uint256 indexed _retailerIndex
+    );
+    event VerifyRetailer(
+        address indexed _retailer,
+        uint256 _retailerID,
+        VerifiedRetailer VR
+    );
 
     struct Supplier {
         address supplierAddress;
@@ -84,14 +105,23 @@ contract SCMOwner {
         string distributorName;
         string location;
     }
-     struct VerifiedDistributor {
+    struct VerifiedDistributor {
         address distributorAddress;
         string distributorName;
         string location;
         string distributorID;
     }
-
-
+    struct Retailer {
+        address retailerAddress;
+        string retailerName;
+        string location;
+    }
+    struct VerifiedRetailer {
+        address retailerAddress;
+        string retailerName;
+        string location;
+        string retailerID;
+    }
     struct Medicine {
         MedicineType med;
         string medicineID;
@@ -115,16 +145,6 @@ contract SCMOwner {
         Retailer,
         Sold
     }
-
-    /*
-    
-    struct Retailer {
-        address retailerAddress;
-        string retailerName;
-        string location;
-        string retailerID;
-    }
-    */
 
     mapping(address => Supplier[]) internal registeredSuppliers;
     mapping(address => Manufacturer[]) internal registeredManufacturers;
@@ -152,9 +172,11 @@ contract SCMOwner {
     function setTotalSuppliersCounter() internal {
         totalSuppliersCounter++;
     }
-    function setTotalDistributorsCounter() internal{
+
+    function setTotalDistributorsCounter() internal {
         totalDistributorsCounter++;
     }
+
     function getTotalSuppliersCounter() internal view returns (uint256) {
         return totalSuppliersCounter;
     }
@@ -162,10 +184,18 @@ contract SCMOwner {
     function getTotalManufacturersCounter() internal view returns (uint256) {
         return totalManufacturersCounter;
     }
-    function getTotalDistributorsCounter() internal view returns(uint256){
+
+    function getTotalDistributorsCounter() internal view returns (uint256) {
         return totalDistributorsCounter;
     }
-    
+
+    function setTotalRetailersCounter() internal {
+        totalRetailersCounter++;
+    }
+
+    function getTotalRetailersCounter() internal view returns (uint256) {
+        return totalRetailersCounter;
+    }
 
     function getOwnerAddress() external view returns (address) {
         return SCMowner;
@@ -230,6 +260,10 @@ contract SCMOwner {
             chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         } else if (x == 1) {
             chars = "9876543210ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlkjihgfedcba";
+        } else if (x == 2) {
+            chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        } else if (x == 3) {
+            chars = "zyxwvutsrqponmlkjihgfedcba9876543210ZYXWVUTSRQPONMLKJIHGFEDCBA";
         } else if (x == 4) {
             chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         } else {
@@ -307,6 +341,30 @@ contract SCMOwner {
                     generateRandomNumber(3, 1),
                     "-",
                     generateRandomString(7, 1)
+                )
+            );
+    }
+
+    function generateDistributorID() internal view returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "DS",
+                    generateRandomNumber(3, 2),
+                    "-",
+                    generateRandomString(7, 2)
+                )
+            );
+    }
+
+    function generateRetailerID() internal view returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "RT",
+                    generateRandomNumber(3, 3),
+                    "-",
+                    generateRandomString(7, 3)
                 )
             );
     }
@@ -564,16 +622,15 @@ contract ManufacturerOperation is SCMOwner {
     }
 }
 
-contract DistributorOperation is SCMOwner{
-    constructor(){
+contract DistributorOperation is SCMOwner {
+    constructor() {}
 
-    }
     function registerDistributor(
         address _distributorAddress,
         string memory _distributorName,
         string memory _location
-    ) public onlyOwner{
-Distributor memory newDistributor = Distributor({
+    ) public onlyOwner {
+        Distributor memory newDistributor = Distributor({
             distributorAddress: _distributorAddress,
             distributorName: _distributorName,
             location: _location
@@ -581,18 +638,21 @@ Distributor memory newDistributor = Distributor({
         registeredDistributors[msg.sender].push(newDistributor);
         emit RegisterDistributor(msg.sender, newDistributor);
     }
+
     function updateDistributorDetails(
         uint256 _index,
         string memory _distributorName,
         string memory _location
-    ) external onlyOwner{
-        require(_index < registeredDistributors[msg.sender].length, "Distributor's index out of bounds");
+    ) external onlyOwner {
+        require(
+            _index < registeredDistributors[msg.sender].length,
+            "Distributor's index out of bounds"
+        );
         Distributor storage dis = registeredDistributors[msg.sender][_index];
         dis.distributorName = _distributorName;
         dis.location = _location;
         emit UpdateDistributorDetails(msg.sender, _index);
     }
-
 }
 
 contract verifyOperation is SCMOwner, SupplierOperation, ManufacturerOperation {
@@ -888,20 +948,34 @@ contract verifyOperation is SCMOwner, SupplierOperation, ManufacturerOperation {
         }
         return false;
     }
-    function approveDistributor(address _distributorAddress) public onlyOwner{
-        for(uint256 i=0; i< registeredDistributors[msg.sender].length; i++){
-            if(registeredDistributors[msg.sender][i].distributorAddress==_distributorAddress){
+
+    function approveDistributor(address _distributorAddress) public onlyOwner {
+        for (
+            uint256 i = 0;
+            i < registeredDistributors[msg.sender].length;
+            i++
+        ) {
+            if (
+                registeredDistributors[msg.sender][i].distributorAddress ==
+                _distributorAddress
+            ) {
                 //return true;
-                Distributor storage distributor = registeredDistributors[msg.sender][i];
+                Distributor storage distributor = registeredDistributors[
+                    msg.sender
+                ][i];
                 VerifiedDistributor memory newVD = VerifiedDistributor({
-            distributorAddress: _distributorAddress,
-            distributorName: distributor.distributorName,
-            location: distributor.location,
-            distributorID: ""
-        });
-        verifiedDistributors[msg.sender].push(newVD);
-        setTotalDistributorsCounter();
-        emit VerifyDistributor(msg.sender, getTotalDistributorsCounter(), newVD);
+                    distributorAddress: _distributorAddress,
+                    distributorName: distributor.distributorName,
+                    location: distributor.location,
+                    distributorID: generateDistributorID()
+                });
+                verifiedDistributors[msg.sender].push(newVD);
+                setTotalDistributorsCounter();
+                emit VerifyDistributor(
+                    msg.sender,
+                    getTotalDistributorsCounter(),
+                    newVD
+                );
             }
         }
     }
@@ -921,7 +995,6 @@ contract verifyOperation is SCMOwner, SupplierOperation, ManufacturerOperation {
         }
         return allDistributors;
     }
-    
 }
 
 contract ForManufacturer {
@@ -1636,6 +1709,4 @@ contract ForDistributor {
     }
 }
 
-contract Retailer {
-
-}
+contract ForRetailer {}
