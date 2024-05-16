@@ -149,11 +149,11 @@ contract SCMOwner {
     mapping(address => Supplier[]) internal registeredSuppliers;
     mapping(address => Manufacturer[]) internal registeredManufacturers;
     mapping(address => Distributor[]) internal registeredDistributors;
+    mapping(address => Retailer[]) internal registeredRetailers;
     mapping(address => VerifiedSupplier[]) internal verifiedSuppliers;
     mapping(address => VerifiedManufacturer[]) internal verifiedManufacturers;
     mapping(address => VerifiedDistributor[]) internal verifiedDistributors;
-    // mapping(address => address[]) internal authorizedDistributors;
-    // mapping(address => address[]) internal authorizedRetailers;
+    mapping(address=> VerifiedRetailer[]) internal verifiedRetailers;
 
     mapping(address => Medicine[]) internal registeredMedicines;
 
@@ -655,7 +655,40 @@ contract DistributorOperation is SCMOwner {
     }
 }
 
-contract verifyOperation is SCMOwner, SupplierOperation, ManufacturerOperation {
+contract RetailerOperation is SCMOwner {
+    constructor() {}
+    function registerRetailer(
+        address _retailerAddress,
+        string memory _retailerName, 
+        string memory _location
+    ) public onlyOwner{
+        Retailer memory newRetailer = Retailer({
+            retailerAddress: _retailerAddress,
+            retailerName: _retailerName,
+            location: _location
+        });
+        registeredRetailers[msg.sender].push(newRetailer);
+        emit RegisterRetailer(msg.sender, newRetailer);
+    }
+    function updateRetailerDetails(
+        uint256 _index, string memory _retailerName, string memory _location
+    ) internal onlyOwner{
+        require(_index<registeredRetailers[msg.sender].length, "Retailer's index out of bounds.");
+        Retailer storage retailer = registeredRetailers[msg.sender][_index];
+        retailer.retailerName = _retailerName;
+        retailer.location=_location;
+        emit UpdateRetailerDetails(msg.sender, _index);
+    }
+  
+}
+
+contract verifyOperation is
+    SCMOwner,
+    SupplierOperation,
+    ManufacturerOperation,
+    DistributorOperation,
+    RetailerOperation
+{
     constructor() {
         approveManufacturer(2, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2);
         approveSupplier(2, 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db);
@@ -994,6 +1027,22 @@ contract verifyOperation is SCMOwner, SupplierOperation, ManufacturerOperation {
             allDistributors[i] = verifiedDistributors[_owner][i];
         }
         return allDistributors;
+    }
+    function approveRetailer(address _retailerAddress) public onlyOwner{
+        for(uint256 i=0;i<registeredRetailers[msg.sender].length;i++){
+            if(registeredRetailers[msg.sender][i].retailerAddress==_retailerAddress){
+                Retailer storage retailer = registeredRetailers[msg.sender][i];
+                VerifiedRetailer memory newVR = VerifiedRetailer({
+                    retailerAddress: _retailerAddress,
+                    retailerName: retailer.retailerName,
+                    location: retailer.location,
+                    retailerID: generateRetailerID()
+                });
+                verifiedRetailers[msg.sender].push(newVR);
+                setTotalRetailersCounter();
+                emit VerifyRetailer(msg.sender, getTotalRetailersCounter(), newVR);
+            }
+        }
     }
 }
 
