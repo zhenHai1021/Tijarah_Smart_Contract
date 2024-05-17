@@ -1044,6 +1044,13 @@ contract verifyOperation is
             }
         }
     }
+    function getAllVRetailer(address _owner) public view returns(VerifiedRetailer[] memory){
+        VerifiedRetailer[] memory allRetailers = new VerifiedRetailer[](verifiedRetailers[_owner].length);
+        for(uint256 i=0; i < verifiedRetailers[_owner].length;i++){
+            allRetailers[i] = verifiedRetailers[_owner][i];
+        }
+        return allRetailers;
+    }
 }
 
 contract ForManufacturer {
@@ -1758,4 +1765,58 @@ contract ForDistributor {
     }
 }
 
-contract ForRetailer {}
+contract ForRetailer {
+    ForDistributor internal forDistributor;
+    verifyOperation internal verifyOp;
+    SCMOwner internal ownerContract;
+    address payable private ownerRTL;
+
+    struct DProduct {
+        string productName;
+        //string productInfo;
+        uint256 productStock;
+        uint256 productPrice;
+        string productID;
+        string medicineID;
+        string MANid;
+        //string DISid;
+    }
+    struct RProduct{
+       
+    string productName;
+    //string productInfo;
+    uint256 productStock;
+    uint256 productPrice;
+    string productID;
+    string medicineID;
+    string MANid;
+    string DISid;
+    string RTLid;
+    }
+    mapping(address=>DProduct[]) internal forDistributedProduct;
+    mapping (address=>RProduct[]) internal forRetailedProduct;
+    mapping(address => mapping(string => bool)) private RProductExists;
+    event AddProduct(address indexed _product, RProduct rproduct);
+
+    constructor( address _ownerContractAddress,
+        address _verifyOp,
+        address _forDistributor){
+        verifyOp =verifyOperation(_verifyOp);
+        ownerContract = SCMOwner(_ownerContractAddress);
+        forDistributor=ForDistributor(_forDistributor);
+    }
+    modifier onlyRetailer(){
+        require(msg.sender==getOwnerRTL(), "Only Retailer can perform");
+        _;
+    }
+    function getOwnerRTL() internal view returns(address){
+        return payable(address(ownerRTL));
+    }
+    function setOwnerRTL(address _owner) internal{
+        ownerRTL = payable(_owner);
+    } 
+    function getOwnerAddress() internal view returns(address){
+        return ownerContract.getOwnerAddress();
+    }
+
+}
