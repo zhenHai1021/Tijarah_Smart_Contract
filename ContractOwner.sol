@@ -1888,14 +1888,11 @@ contract ForRetailer {
                 //} 
                 else if (_x == 2) {
                     return prod[i].medicineID;
-                } else if (_x == 3) {
+                }else if (_x == 3) {
                     return prod[i].MANid;
-                } 
-                /*
-                else if(_x==4){
+                }else if(_x==4){
                     return prod[i].DISid;
                 }
-                */
             }
         }
         return "";
