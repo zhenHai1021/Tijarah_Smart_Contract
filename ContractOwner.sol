@@ -981,6 +981,22 @@ contract verifyOperation is
         }
         return false;
     }
+    function isDistributorVerified(address _owner, address _distributorAddress) public view returns (bool){
+        for(uint256 i=0; i< verifiedDistributors[_owner].length; i++){
+            if(verifiedDistributors[_owner][i].distributorAddress == _distributorAddress){
+                return true;
+            }
+        }
+        return false;
+    }
+    function isRetailerVerified(address _owner, address _retailerAddress) public view returns (bool){
+        for(uint256 i=0; i< verifiedRetailers[_owner].length;i++){
+            if(verifiedRetailers[_owner][i].retailerAddress == _retailerAddress){
+                return true;
+            }
+        }
+        return false;
+    }
 
     function approveDistributor(address _distributorAddress) public onlyOwner {
         for (
@@ -1509,10 +1525,7 @@ contract ForManufacturer {
         );
         delete registeredProducts[msg.sender][_index];
     }
-    //check product request from distributor
-    //approve product requested
-    //emit productRequestedApproved
-    //event
+   
 }
 
 contract ForDistributor {
@@ -1520,19 +1533,6 @@ contract ForDistributor {
     verifyOperation internal verifyOp;
     SCMOwner internal ownerContract;
     address payable private ownerDIS;
-
-    /*
-    struct Product {
-        string productName;
-        string productInfo;
-        uint256 productStock;
-        uint256 price;
-        string productID;
-        string medicineID;
-        string MANid;
-    }
-    */
-    //get verifyOP.manu details
     struct Product {
         string productName;
         string productInfo;
@@ -1551,8 +1551,15 @@ contract ForDistributor {
         string productID;
         string medicineID;
         string MANid;
-        //string DISid;
+        string DISid;
     }
+     struct VerifiedDistributor {
+        address distributorAddress;
+        string distributorName;
+        string location;
+        string distributorID;
+    }
+    mapping(address => VerifiedDistributor[]) internal verifiedDistributors;
     mapping(address => DProduct[]) internal forDistributedProduct;
     mapping(address => Product[]) internal registeredProducts;
     mapping(address => mapping(string => bool)) private DProductExists;
@@ -1565,7 +1572,10 @@ contract ForDistributor {
     ) {
         verifyOp = verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
-        forManufacturer = ForManufacturer(_forManufacturer);
+       
+        require(verifyOp.isDistributorVerified(getOwnerAddress(), _forManufacturer), "Distributor Not Found.");
+        setOwnerDIS(payable(address(_forManufacturer)));
+        listenToEvents();
     }
 
     modifier onlyDistributor() {
@@ -1586,6 +1596,16 @@ contract ForDistributor {
     }
 
     function listenToEvents() internal {
+        verifyOperation.VerifiedDistributor[] memory vd = verifyOp.getAllVDistributor(getOwnerAddress());
+        for(uint256 i=0;i<vd.length;i++){
+            VerifiedDistributor memory tempVD = VerifiedDistributor(
+                vd[i].distributorAddress,
+                vd[i].distributorName,
+                vd[i].location,
+                vd[i].distributorID
+            );
+            verifiedDistributors[getOwnerDIS()].push(tempVD);
+        }
         ForManufacturer.Product[] memory prod = forManufacturer.getAllProduct();
         for (uint256 i = 0; i < prod.length; i++) {
             Product memory tempProd = Product(
@@ -1682,20 +1702,6 @@ contract ForDistributor {
         }
         return "";
     }
-
-    /*
-     struct DProduct {
-        string productName;
-        //string productInfo;
-        uint256 productStock;
-        uint256 productPrice;
-        string productID;
-        string medicineID;
-        string MANid;
-        //string DISid;
-    }
-    */
-
     function addDProduct(
         string memory _ID,
         uint256 _price,
@@ -1712,10 +1718,19 @@ contract ForDistributor {
             productPrice: _price,
             productID: _ID,
             medicineID: getProductDetailsByID(2, _ID),
-            MANid: getProductDetailsByID(3, _ID)
+            MANid: getProductDetailsByID(3, _ID),
+            DISid: getDistributorID(getOwnerDIS())
         });
         forDistributedProduct[getOwnerDIS()].push(dproduct);
         emit AddDProduct(getOwnerDIS(), dproduct);
+    }
+
+    function getAllProduct() public view returns(DProduct[] memory){
+        DProduct[] memory allDProducts = new DProduct[](forDistributedProduct[getOwnerDIS()].length);
+        for(uint256 i=0; i< forDistributedProduct[getOwnerDIS()].length;i++){
+            allDProducts[i] = forDistributedProduct[getOwnerDIS()][i];
+        }
+        return allDProducts;
     }
 
     function removeDProduct(string memory _ID) public {
@@ -1763,6 +1778,16 @@ contract ForDistributor {
         }
         return totalRevenue;
     }
+    function getDistributorID(address _distributorAddress) internal view returns(string memory){
+        string memory distributorID;
+        for(uint256 i=0; i< verifiedDistributors[_distributorAddress].length; i++){
+            if(verifiedDistributors[_distributorAddress][i].distributorAddress == _distributorAddress){
+                distributorID = verifiedDistributors[_distributorAddress][i].distributorID;
+                break;
+            }
+        }
+        return (distributorID);
+    }
 }
 
 contract ForRetailer {
@@ -1773,18 +1798,15 @@ contract ForRetailer {
 
     struct DProduct {
         string productName;
-        //string productInfo;
         uint256 productStock;
         uint256 productPrice;
         string productID;
         string medicineID;
         string MANid;
-        //string DISid;
+        string DISid;
     }
     struct RProduct{
-       
     string productName;
-    //string productInfo;
     uint256 productStock;
     uint256 productPrice;
     string productID;
@@ -1817,6 +1839,66 @@ contract ForRetailer {
     } 
     function getOwnerAddress() internal view returns(address){
         return ownerContract.getOwnerAddress();
+    }
+    function listenToEvents() internal{
+        ForDistributor.DProduct[] memory prod = forDistributor.getAllProduct();
+        for(uint256 i=0;i<prod.length;i++){
+            DProduct memory tempProd = DProduct(
+                prod[i].productName,
+                prod[i].productStock,
+                prod[i].productPrice,
+                prod[i].productID,
+                prod[i].medicineID,
+                prod[i].MANid,
+                prod[i].DISid
+            );
+            forDistributedProduct[getOwnerRTL()].push(tempProd);
+        }
+    }
+    function getRProductAdded() public view returns (RProduct[] memory){
+        RProduct[] memory allProducts = new RProduct[](forRetailedProduct[getOwnerRTL()].length);
+        for(uint256 i=0; i< forRetailedProduct[getOwnerRTL()].length;i++){
+            allProducts[i]=forRetailedProduct[getOwnerRTL()][i];
+        }
+        return allProducts;
+    }
+
+    function requestProduct(string memory _ID, uint256 _stockWant) internal view returns(bool){
+        ForDistributor.DProduct[] memory prod = forDistributor.getDProductAdded();
+        for(uint256 i=0; i<prod.length;i++){
+            if(keccak256(bytes(prod[i].productID))==keccak256(bytes(_ID))){
+                if(prod[i].productStock>=_stockWant){
+                    return true;
+                }else{
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+    function getProductDetailsByID(uint256 _x, string memory _ID) internal view returns (string memory){
+        ForDistributor.DProduct[] memory prod = forDistributor.getDProductAdded();
+        for (uint256 i = 0; i < prod.length; i++) {
+            if (keccak256(bytes(prod[i].productID)) == keccak256(bytes(_ID))) {
+                if (_x == 0) {
+                    return prod[i].productName;
+                } 
+                //else if (_x == 1) {
+                //    return prod[i].productInfo;
+                //} 
+                else if (_x == 2) {
+                    return prod[i].medicineID;
+                } else if (_x == 3) {
+                    return prod[i].MANid;
+                } 
+                /*
+                else if(_x==4){
+                    return prod[i].DISid;
+                }
+                */
+            }
+        }
+        return "";
     }
 
 }
