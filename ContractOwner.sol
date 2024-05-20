@@ -1568,13 +1568,13 @@ contract ForDistributor {
     constructor(
         address _ownerContractAddress,
         address _verifyOp,
-        address _forManufacturer
+        address _owner
     ) {
         verifyOp = verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
        
-        require(verifyOp.isDistributorVerified(getOwnerAddress(), _forManufacturer), "Distributor Not Found.");
-        setOwnerDIS(payable(address(_forManufacturer)));
+        require(verifyOp.isDistributorVerified(getOwnerAddress(), _owner), "Distributor Not Found.");
+        setOwnerDIS(payable(address(_owner)));
         listenToEvents();
     }
 
@@ -1815,17 +1815,27 @@ contract ForRetailer {
     string DISid;
     string RTLid;
     }
+     struct VerifiedRetailer {
+        address retailerAddress;
+        string retailerName;
+        string location;
+        string retailerID;
+    }
+    mapping(address => VerifiedRetailer[]) internal verifiedRetailers;
     mapping(address=>DProduct[]) internal forDistributedProduct;
     mapping (address=>RProduct[]) internal forRetailedProduct;
     mapping(address => mapping(string => bool)) private RProductExists;
-    event AddProduct(address indexed _product, RProduct rproduct);
+    event AddRProduct(address indexed _product, RProduct rproduct);
+    event DeductRProduct(address indexed _product, uint256 indexed _productIndex);
 
     constructor( address _ownerContractAddress,
         address _verifyOp,
-        address _forDistributor){
+        address _owner){
         verifyOp =verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
-        forDistributor=ForDistributor(_forDistributor);
+        require(verifyOp.isRetailerVerified(getOwnerAddress(), _owner), "Retailer Not Found.");
+        setOwnerRTL(_owner);
+        listenToEvents();
     }
     modifier onlyRetailer(){
         require(msg.sender==getOwnerRTL(), "Only Retailer can perform");
@@ -1896,6 +1906,33 @@ contract ForRetailer {
             }
         }
         return "";
+    }
+
+    function addRProduct (string memory _ID, uint256 _price, uint256 _stock) public onlyRetailer{
+        require(!RProductExists[getOwnerRTL()][_ID], "Product already Exist.");
+        require(requestProduct(_ID, _stock), "Product Not Found from Retailer.");
+        RProduct memory rproduct = RProduct({
+            productName: getProductDetailsByID(0, _ID),
+            productStock: _stock,
+            productPrice: _price,
+            productID: _ID,
+            medicineID: getProductDetailsByID(2, _ID),
+            MANid: getProductDetailsByID(3, _ID),
+            DISid: getProductDetailsByID(4, _ID),
+            RTLid: getRetailerID(getOwnerRTL())
+        });
+        forRetailedProduct[getOwnerRTL()].push(rproduct);
+        emit AddRProduct(getOwnerRTL(), rproduct);
+    }
+    function getRetailerID(address _retailerAddress) internal view returns (string memory){
+        string memory retailerID;
+        for(uint256 i=0; i<verifiedRetailers[_retailerAddress].length; i++){
+            if(verifiedRetailers[_retailerAddress][i].retailerAddress == _retailerAddress){
+                retailerID = verifiedRetailers[_retailerAddress][i].retailerID;
+                break;
+            }
+        }
+        return (retailerID);
     }
 
 }
