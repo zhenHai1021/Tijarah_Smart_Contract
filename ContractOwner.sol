@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+//import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+//import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
+//import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 contract SCMOwner {
     address payable private SCMowner;
@@ -688,51 +688,22 @@ contract verifyOperation is
     ManufacturerOperation,
     DistributorOperation,
     RetailerOperation
-{
+{ 
+   
     constructor() {
-        approveManufacturer(2, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2);
-        approveSupplier(2, 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db);
-        /*
-         // REF:
-    // https://github.com/Faizack/Supply-Chain-Blockchain?tab=readme-ov-file
-         registeredMedicines[msg.sender].push(
-            Medicine(
-                MedicineType.Capsules,
-                "C23-3123123",
-                "ProBiotics",
-                "VERY GOOD",
-                Stage.Initial
-            )
-        );
-        registeredMedicines[msg.sender].push(
-            Medicine(
-                MedicineType.Liquid,
-                "L23-3123123",
-                "Anti-Biotics",
-                "VERY GOOD",
-                Stage.Initial
-            )
-        );
-        */
+       
+        approveManufacturer(0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2);
+        approveSupplier(0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db);
     }
 
-    function approveSupplier(uint256 _index, address _supplierAddress)
+    function approveSupplier(address _supplierAddress)
         public
         onlyOwner
     {
-        require(
-            _index < registeredSuppliers[msg.sender].length,
-            "Supplier's index out of bounds"
-        );
-        require(
-            registeredSuppliers[msg.sender][_index].supplierAddress ==
-                _supplierAddress,
-            "Supplier address does not exist"
-        );
-
-        Supplier storage supplier = registeredSuppliers[msg.sender][_index];
-
-        VerifiedSupplier memory newVerifiedSupplier = VerifiedSupplier({
+        for(uint256 i=0;i<registeredSuppliers[msg.sender].length;i++){
+            if(registeredSuppliers[msg.sender][i].supplierAddress==_supplierAddress){
+                Supplier storage supplier = registeredSuppliers[msg.sender][i];
+                 VerifiedSupplier memory newVerifiedSupplier = VerifiedSupplier({
             supplierAddress: _supplierAddress,
             supplierName: supplier.supplierName,
             contactInformation: supplier.contactInformation,
@@ -748,52 +719,85 @@ contract verifyOperation is
             getTotalSuppliersCounter(),
             newVerifiedSupplier
         );
-    }
-
-    function getVerifiedSupplier(uint256 _index)
-        internal
-        view
-        onlyOwner
-        returns (
-            address,
-            string memory,
-            string memory,
-            string memory,
-            string memory,
-            string memory
-        )
-    {
-        require(
-            _index < verifiedSuppliers[msg.sender].length,
-            "Verified Supplier's index out of bounds"
-        );
-        return (
-            verifiedSuppliers[msg.sender][_index].supplierAddress,
-            verifiedSuppliers[msg.sender][_index].supplierName,
-            verifiedSuppliers[msg.sender][_index].contactInformation,
-            verifiedSuppliers[msg.sender][_index].location,
-            getProductOfferedAsString(
-                verifiedSuppliers[msg.sender][_index].productOffered
-            ),
-            getIDAsString(verifiedSuppliers[msg.sender][_index].supplierID)
-        );
-    }
-
-    function getAllVSupplier(address _owner)
-        public
-        view
-        returns (VerifiedSupplier[] memory)
-    {
-        VerifiedSupplier[] memory allSuppliers = new VerifiedSupplier[](
-            verifiedSuppliers[_owner].length
-        );
-
-        for (uint256 i = 0; i < verifiedSuppliers[_owner].length; i++) {
-            allSuppliers[i] = verifiedSuppliers[_owner][i];
+            }
         }
-        return allSuppliers;
-    }
+      
+       
 
+       
+    }
+    function approveManufacturer(address _manufacturerAddress)
+        public
+        onlyOwner
+    {
+        for(uint256 i=0;i<registeredManufacturers[msg.sender].length;i++){
+             if(registeredManufacturers[msg.sender][i].manufacturerAddress==_manufacturerAddress){
+        Manufacturer storage manufacturer = registeredManufacturers[msg.sender][i];
+        VerifiedManufacturer
+            memory newVerifiedManufacturer = VerifiedManufacturer({
+                manufacturerAddress: _manufacturerAddress,
+                manufacturerName: manufacturer.manufacturerName,
+                location: manufacturer.location,
+                approval: true,
+                manufacturerID: generateManufacturerID()
+            });
+        verifiedManufacturers[msg.sender].push(newVerifiedManufacturer);
+        setTotalManufacturersCounter();
+        emit VerifyManufacturer(
+            msg.sender,
+            getTotalManufacturersCounter(),
+            newVerifiedManufacturer
+        );
+             }
+        }
+    }
+    function approveDistributor(address _distributorAddress) public onlyOwner {
+        for (
+            uint256 i = 0;
+            i < registeredDistributors[msg.sender].length;
+            i++
+        ) {
+            if (
+                registeredDistributors[msg.sender][i].distributorAddress ==
+                _distributorAddress
+            ) {
+                //return true;
+                Distributor storage distributor = registeredDistributors[
+                    msg.sender
+                ][i];
+                VerifiedDistributor memory newVD = VerifiedDistributor({
+                    distributorAddress: _distributorAddress,
+                    distributorName: distributor.distributorName,
+                    location: distributor.location,
+                    distributorID: generateDistributorID()
+                });
+                verifiedDistributors[msg.sender].push(newVD);
+                setTotalDistributorsCounter();
+                emit VerifyDistributor(
+                    msg.sender,
+                    getTotalDistributorsCounter(),
+                    newVD
+                );
+            }
+        }
+    }
+    function approveRetailer(address _retailerAddress) public onlyOwner{
+        for(uint256 i=0;i<registeredRetailers[msg.sender].length;i++){
+            if(registeredRetailers[msg.sender][i].retailerAddress==_retailerAddress){
+                Retailer storage retailer = registeredRetailers[msg.sender][i];
+                VerifiedRetailer memory newVR = VerifiedRetailer({
+                    retailerAddress: _retailerAddress,
+                    retailerName: retailer.retailerName,
+                    location: retailer.location,
+                    retailerID: generateRetailerID()
+                });
+                verifiedRetailers[msg.sender].push(newVR);
+                setTotalRetailersCounter();
+                emit VerifyRetailer(msg.sender, getTotalRetailersCounter(), newVR);
+            }
+        }
+    }
+   
     function registerMedicine(
         MedicineType _medicineType,
         string memory _medicineName,
@@ -830,147 +834,9 @@ contract verifyOperation is
         return false;
     }
 
-    function getMedicineDetails(uint256 _index)
-        internal
-        view
-        onlyOwner
-        returns (
-            string memory,
-            string memory,
-            string memory,
-            string memory
-        )
-    {
-        require(
-            _index < registeredMedicines[msg.sender].length,
-            "Medicine Index out of bounds"
-        );
-        if (
-            bytes(registeredMedicines[msg.sender][_index].medicineName)
-                .length == 0
-        ) {
-            return ("", "", "", "");
-        } else {
-            return (
-                getMedicineTypeAsString(
-                    registeredMedicines[msg.sender][_index].med
-                ),
-                registeredMedicines[msg.sender][_index].medicineName,
-                registeredMedicines[msg.sender][_index].medicineInfo,
-                getMedicineStageAsString(
-                    registeredMedicines[msg.sender][_index].currentStage
-                )
-            );
-        }
-    }
-
-    function removeMedicine(uint256 _index) internal onlyOwner {
-        require(
-            _index < registeredMedicines[msg.sender].length,
-            "Medicine Index out of bounds"
-        );
-        require(
-            registeredMedicines[msg.sender].length > 1,
-            "Cannot remove the last medicine"
-        );
-
-        delete registeredMedicines[msg.sender][_index];
-    }
-
-    function getAllMedicines(address _owner)
-        external
-        view
-        returns (Medicine[] memory)
-    {
-        Medicine[] memory allMedicines = new Medicine[](
-            registeredMedicines[_owner].length
-        );
-
-        for (uint256 i = 0; i < registeredMedicines[_owner].length; i++) {
-            allMedicines[i] = registeredMedicines[_owner][i];
-        }
-        return allMedicines;
-    }
-
-    function approveManufacturer(uint256 _index, address _manufacturerAddress)
-        public
-        onlyOwner
-    {
-        require(
-            _index < registeredManufacturers[msg.sender].length,
-            "Manufacturer's index out of bounds"
-        );
-        require(
-            registeredManufacturers[msg.sender][_index].manufacturerAddress ==
-                _manufacturerAddress,
-            "Manufacturer address does not exist"
-        );
-        Manufacturer storage manufacturer = registeredManufacturers[msg.sender][
-            _index
-        ];
-
-        VerifiedManufacturer
-            memory newVerifiedManufacturer = VerifiedManufacturer({
-                manufacturerAddress: _manufacturerAddress,
-                manufacturerName: manufacturer.manufacturerName,
-                location: manufacturer.location,
-                approval: true,
-                manufacturerID: generateManufacturerID()
-            });
-        verifiedManufacturers[msg.sender].push(newVerifiedManufacturer);
-        setTotalManufacturersCounter();
-        emit VerifyManufacturer(
-            msg.sender,
-            getTotalManufacturersCounter(),
-            newVerifiedManufacturer
-        );
-    }
-
-    function getVerifiedManufacturer(uint256 _index)
-        internal
-        view
-        onlyOwner
-        returns (
-            address,
-            string memory,
-            string memory,
-            string memory
-        )
-    {
-        require(
-            _index < verifiedManufacturers[msg.sender].length,
-            "Verified Manufacturer's index out of bounds"
-        );
-        return (
-            verifiedManufacturers[msg.sender][_index].manufacturerAddress,
-            verifiedManufacturers[msg.sender][_index].manufacturerName,
-            verifiedManufacturers[msg.sender][_index].location,
-            getIDAsString(
-                verifiedManufacturers[msg.sender][_index].manufacturerID
-            )
-        );
-    }
-
-    function getAllVManufacturer(address _owner)
-        public
-        view
-        returns (VerifiedManufacturer[] memory)
-    {
-        VerifiedManufacturer[]
-            memory allManufacturers = new VerifiedManufacturer[](
-                verifiedManufacturers[_owner].length
-            );
-
-        for (uint256 i = 0; i < verifiedManufacturers[_owner].length; i++) {
-            allManufacturers[i] = verifiedManufacturers[_owner][i];
-        }
-        return allManufacturers;
-    }
-
     function isManufacturerVerified(
         address _owner,
-        address _manufacturerAddress
-    ) public view returns (bool) {
+        address _manufacturerAddress) public view returns (bool) {
         for (uint256 i = 0; i < verifiedManufacturers[_owner].length; i++) {
             if (
                 verifiedManufacturers[_owner][i].manufacturerAddress ==
@@ -998,75 +864,74 @@ contract verifyOperation is
         return false;
     }
 
-    function approveDistributor(address _distributorAddress) public onlyOwner {
-        for (
-            uint256 i = 0;
-            i < registeredDistributors[msg.sender].length;
-            i++
-        ) {
-            if (
-                registeredDistributors[msg.sender][i].distributorAddress ==
-                _distributorAddress
-            ) {
-                //return true;
-                Distributor storage distributor = registeredDistributors[
-                    msg.sender
-                ][i];
-                VerifiedDistributor memory newVD = VerifiedDistributor({
-                    distributorAddress: _distributorAddress,
-                    distributorName: distributor.distributorName,
-                    location: distributor.location,
-                    distributorID: generateDistributorID()
-                });
-                verifiedDistributors[msg.sender].push(newVD);
-                setTotalDistributorsCounter();
-                emit VerifyDistributor(
-                    msg.sender,
-                    getTotalDistributorsCounter(),
-                    newVD
-                );
-            }
+    function getAllVSupplier()
+        public
+        view
+        returns (VerifiedSupplier[] memory)
+    {
+        VerifiedSupplier[] memory allSuppliers = new VerifiedSupplier[](
+            verifiedSuppliers[msg.sender].length
+        );
+
+        for (uint256 i = 0; i < verifiedSuppliers[msg.sender].length; i++) {
+            allSuppliers[i] = verifiedSuppliers[msg.sender][i];
         }
+        return allSuppliers;
+    }
+    function getAllVManufacturer()
+        public
+        view
+        returns (VerifiedManufacturer[] memory)
+    {
+        VerifiedManufacturer[]
+            memory allManufacturers = new VerifiedManufacturer[](
+                verifiedManufacturers[msg.sender].length
+            );
+
+        for (uint256 i = 0; i < verifiedManufacturers[msg.sender].length; i++) {
+            allManufacturers[i] = verifiedManufacturers[msg.sender][i];
+        }
+        return allManufacturers;
     }
 
-    function getAllVDistributor(address _owner)
+    function getAllVDistributor()
         public
         view
         returns (VerifiedDistributor[] memory)
     {
         VerifiedDistributor[]
             memory allDistributors = new VerifiedDistributor[](
-                verifiedDistributors[_owner].length
+                verifiedDistributors[msg.sender].length
             );
 
-        for (uint256 i = 0; i < verifiedDistributors[_owner].length; i++) {
-            allDistributors[i] = verifiedDistributors[_owner][i];
+        for (uint256 i = 0; i < verifiedDistributors[msg.sender].length; i++) {
+            allDistributors[i] = verifiedDistributors[msg.sender][i];
         }
         return allDistributors;
     }
-    function approveRetailer(address _retailerAddress) public onlyOwner{
-        for(uint256 i=0;i<registeredRetailers[msg.sender].length;i++){
-            if(registeredRetailers[msg.sender][i].retailerAddress==_retailerAddress){
-                Retailer storage retailer = registeredRetailers[msg.sender][i];
-                VerifiedRetailer memory newVR = VerifiedRetailer({
-                    retailerAddress: _retailerAddress,
-                    retailerName: retailer.retailerName,
-                    location: retailer.location,
-                    retailerID: generateRetailerID()
-                });
-                verifiedRetailers[msg.sender].push(newVR);
-                setTotalRetailersCounter();
-                emit VerifyRetailer(msg.sender, getTotalRetailersCounter(), newVR);
-            }
-        }
-    }
-    function getAllVRetailer(address _owner) public view returns(VerifiedRetailer[] memory){
-        VerifiedRetailer[] memory allRetailers = new VerifiedRetailer[](verifiedRetailers[_owner].length);
-        for(uint256 i=0; i < verifiedRetailers[_owner].length;i++){
-            allRetailers[i] = verifiedRetailers[_owner][i];
+    function getAllVRetailer() public view returns(VerifiedRetailer[] memory){
+        VerifiedRetailer[] memory allRetailers = new VerifiedRetailer[](verifiedRetailers[msg.sender].length);
+        for(uint256 i=0; i < verifiedRetailers[msg.sender].length;i++){
+            allRetailers[i] = verifiedRetailers[msg.sender][i];
         }
         return allRetailers;
     }
+
+    function getAllMedicines()
+        external
+        view
+        returns (Medicine[] memory)
+    {
+        Medicine[] memory allMedicines = new Medicine[](
+            registeredMedicines[msg.sender].length
+        );
+
+        for (uint256 i = 0; i < registeredMedicines[msg.sender].length; i++) {
+            allMedicines[i] = registeredMedicines[msg.sender][i];
+        }
+        return allMedicines;
+    }
+
 }
 
 contract ForManufacturer {
@@ -1083,6 +948,7 @@ contract ForManufacturer {
         string medicineID;
         string MANid;
     }
+    //
     struct VerifiedManufacturer {
         address manufacturerAddress;
         string manufacturerName;
@@ -1099,6 +965,7 @@ contract ForManufacturer {
         bool approval;
         string supplierID;
     }
+    //
     enum ProductOffered {
         RawMaterials,
         Components,
@@ -1134,6 +1001,7 @@ contract ForManufacturer {
     mapping(address => VerifiedManufacturer[]) internal verifiedManufacturers;
     mapping(address => VerifiedSupplier[]) internal verifiedSuppliers;
     mapping(address => Medicine[]) internal registeredMedicines;
+    mapping(address=> mapping(string => bool)) private productExist;
     event RegisterProduct(address indexed _product, Product product);
 
     //0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2
@@ -1237,7 +1105,9 @@ contract ForManufacturer {
     //set the manu address as msg.sender
     function listenToEvents() internal {
         verifyOperation.VerifiedManufacturer[] memory vm = verifyOp
-            .getAllVManufacturer(getOwnerAddress());
+            .getAllVManufacturer(
+                //getOwnerAddress()
+                );
         for (uint256 i = 0; i < vm.length; i++) {
             VerifiedManufacturer memory tempVM = VerifiedManufacturer(
                 vm[i].manufacturerAddress,
@@ -1249,7 +1119,7 @@ contract ForManufacturer {
             verifiedManufacturers[getOwnerMANU()].push(tempVM);
         }
         verifyOperation.VerifiedSupplier[] memory vs = verifyOp.getAllVSupplier(
-            getOwnerAddress()
+           // getOwnerAddress()
         );
         for (uint256 i = 0; i < vs.length; i++) {
             ProductOffered[] memory productOffered = new ProductOffered[](
@@ -1272,7 +1142,7 @@ contract ForManufacturer {
             verifiedSuppliers[getOwnerMANU()].push(tempVS);
         }
         verifyOperation.Medicine[] memory med = verifyOp.getAllMedicines(
-            getOwnerAddress()
+            //getOwnerAddress()
         );
         for (uint256 i = 0; i < med.length; i++) {
             Medicine memory tempMed = Medicine(
@@ -1320,30 +1190,7 @@ contract ForManufacturer {
         return allMs;
     }
 
-    function getVerifiedManufacturer(uint256 _index)
-        external
-        view
-        returns (
-            address,
-            string memory,
-            string memory,
-            string memory
-        )
-    {
-        require(
-            _index < verifiedManufacturers[msg.sender].length,
-            "Verified Manufacturer's index out of bounds"
-        );
-
-        return (
-            verifiedManufacturers[msg.sender][_index].manufacturerAddress,
-            verifiedManufacturers[msg.sender][_index].manufacturerName,
-            verifiedManufacturers[msg.sender][_index].location,
-            getIDsAsString(
-                verifiedManufacturers[msg.sender][_index].manufacturerID
-            )
-        );
-    }
+    
 
     function addProduct(
         string memory _productName,
@@ -1353,22 +1200,25 @@ contract ForManufacturer {
         string memory _medicineID
     ) external onlyManufacturer {
         listenToEvents();
+        string memory _productID = generateProductID();
         require(
             checkMedicineID(_medicineID),
             "Medicine OR Supplier Not Existed."
         );
-
+        require(!productExist[getOwnerMANU()][_productID], "Product exist in Manufacturer's stock.");
+       
         Product memory newProduct = Product({
             productName: _productName,
             productInfo: _productInfo,
             productStock: _stock,
             price: _price,
             medicineID: _medicineID,
-            productID: generateProductID(),
+            productID: _productID,
             MANid: getManufacturerID(getOwnerMANU())
         });
-        registeredProducts[msg.sender].push(newProduct);
-        emit RegisterProduct(msg.sender, newProduct);
+        registeredProducts[getOwnerMANU()].push(newProduct);
+        emit RegisterProduct(getOwnerMANU(), newProduct);
+        productExist[getOwnerMANU()][_productID] = true;
     }
 
     function getAllProduct() public view returns (Product[] memory) {
@@ -1568,13 +1418,13 @@ contract ForDistributor {
     constructor(
         address _ownerContractAddress,
         address _verifyOp,
-        address _owner
+        address _forManufacturer
     ) {
         verifyOp = verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
        
-        require(verifyOp.isDistributorVerified(getOwnerAddress(), _owner), "Distributor Not Found.");
-        setOwnerDIS(payable(address(_owner)));
+        require(verifyOp.isDistributorVerified(getOwnerAddress(), _forManufacturer), "Distributor Not Found.");
+        setOwnerDIS(payable(address(_forManufacturer)));
         listenToEvents();
     }
 
@@ -1596,7 +1446,9 @@ contract ForDistributor {
     }
 
     function listenToEvents() internal {
-        verifyOperation.VerifiedDistributor[] memory vd = verifyOp.getAllVDistributor(getOwnerAddress());
+        verifyOperation.VerifiedDistributor[] memory vd = verifyOp.getAllVDistributor(
+           // getOwnerAddress()
+            );
         for(uint256 i=0;i<vd.length;i++){
             VerifiedDistributor memory tempVD = VerifiedDistributor(
                 vd[i].distributorAddress,
@@ -1790,6 +1642,8 @@ contract ForDistributor {
     }
 }
 
+
+
 contract ForRetailer {
     ForDistributor internal forDistributor;
     verifyOperation internal verifyOp;
@@ -1815,27 +1669,17 @@ contract ForRetailer {
     string DISid;
     string RTLid;
     }
-     struct VerifiedRetailer {
-        address retailerAddress;
-        string retailerName;
-        string location;
-        string retailerID;
-    }
-    mapping(address => VerifiedRetailer[]) internal verifiedRetailers;
     mapping(address=>DProduct[]) internal forDistributedProduct;
     mapping (address=>RProduct[]) internal forRetailedProduct;
     mapping(address => mapping(string => bool)) private RProductExists;
-    event AddRProduct(address indexed _product, RProduct rproduct);
-    event DeductRProduct(address indexed _product, uint256 indexed _productIndex);
+    event AddProduct(address indexed _product, RProduct rproduct);
 
     constructor( address _ownerContractAddress,
         address _verifyOp,
-        address _owner){
+        address _forDistributor){
         verifyOp =verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
-        require(verifyOp.isRetailerVerified(getOwnerAddress(), _owner), "Retailer Not Found.");
-        setOwnerRTL(_owner);
-        listenToEvents();
+        forDistributor=ForDistributor(_forDistributor);
     }
     modifier onlyRetailer(){
         require(msg.sender==getOwnerRTL(), "Only Retailer can perform");
@@ -1906,33 +1750,6 @@ contract ForRetailer {
             }
         }
         return "";
-    }
-
-    function addRProduct (string memory _ID, uint256 _price, uint256 _stock) public onlyRetailer{
-        require(!RProductExists[getOwnerRTL()][_ID], "Product already Exist.");
-        require(requestProduct(_ID, _stock), "Product Not Found from Retailer.");
-        RProduct memory rproduct = RProduct({
-            productName: getProductDetailsByID(0, _ID),
-            productStock: _stock,
-            productPrice: _price,
-            productID: _ID,
-            medicineID: getProductDetailsByID(2, _ID),
-            MANid: getProductDetailsByID(3, _ID),
-            DISid: getProductDetailsByID(4, _ID),
-            RTLid: getRetailerID(getOwnerRTL())
-        });
-        forRetailedProduct[getOwnerRTL()].push(rproduct);
-        emit AddRProduct(getOwnerRTL(), rproduct);
-    }
-    function getRetailerID(address _retailerAddress) internal view returns (string memory){
-        string memory retailerID;
-        for(uint256 i=0; i<verifiedRetailers[_retailerAddress].length; i++){
-            if(verifiedRetailers[_retailerAddress][i].retailerAddress == _retailerAddress){
-                retailerID = verifiedRetailers[_retailerAddress][i].retailerID;
-                break;
-            }
-        }
-        return (retailerID);
     }
 
 }
