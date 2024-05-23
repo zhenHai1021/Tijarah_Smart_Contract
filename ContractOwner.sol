@@ -1003,6 +1003,13 @@ contract ForManufacturer {
     mapping(address => VerifiedManufacturer[]) internal verifiedManufacturers;
     mapping(address => mapping(string => bool)) private productExist;
     event RegisterProduct(address indexed _product, Product product);
+    event ProductSold(
+        address indexed seller,
+        address indexed buyer,
+        string productID,
+        uint256 stock,
+        uint256 newStock
+    );
 
     //0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2
     constructor(
@@ -1025,7 +1032,7 @@ contract ForManufacturer {
         _;
     }
 
-    function getOwnerMANU() internal view returns (address) {
+    function getOwnerMANU() public view returns (address) {
         return payable(address(ownerMANU));
     }
 
@@ -1069,18 +1076,43 @@ contract ForManufacturer {
         emit RegisterProduct(getOwnerMANU(), newProduct);
     }
 
-    function getAllProduct() public view returns (Product[] memory) {
-        Product[] memory allProducts = new Product[](
-            registeredProducts[getOwnerMANU()].length
-        );
-        for (
-            uint256 i = 0;
-            i < registeredProducts[getOwnerMANU()].length;
-            i++
-        ) {
-            allProducts[i] = registeredProducts[getOwnerMANU()][i];
+    function getAllProduct(address _manufacturer)
+        external
+        view
+        returns (Product[] memory)
+    {
+        return registeredProducts[_manufacturer];
+    }
+
+    function sellProduct(
+        address seller,
+        string memory _productID,
+        uint256 _stock
+    ) public {
+        Product[] storage product = registeredProducts[seller];
+        bool productFound = false;
+        for (uint256 i = 0; i < product.length; i++) {
+            if (
+                keccak256(bytes(product[i].productID)) ==
+                keccak256(bytes(_productID))
+            ) {
+                require(
+                    product[i].productStock >= _stock,
+                    "Insufficient Stock."
+                );
+                product[i].productStock -= _stock;
+                emit ProductSold(
+                    seller,
+                    getOwnerMANU(),
+                    _productID,
+                    _stock,
+                    product[i].productStock
+                );
+                productFound = true;
+                break;
+            }
         }
-        return allProducts;
+        require(productFound, "Product ID Not Found");
     }
 
     function getManufacturerID(address _manufacturerAddress)
@@ -1209,16 +1241,24 @@ contract ForManufacturer {
     }
 
     //remove(): remove products
-    function removeProduct(uint256 _index) external onlyManufacturer {
-        require(
-            _index < registeredProducts[msg.sender].length,
-            "Product Index out of bounds"
-        );
-        require(
-            registeredProducts[msg.sender].length > 1,
-            "Cannot remove the last product"
-        );
-        delete registeredProducts[msg.sender][_index];
+    function removeProductByID(string memory _productID)
+        public
+        onlyManufacturer
+    {
+        Product[] storage product = registeredProducts[getOwnerMANU()];
+        for (uint256 i = 0; i < product.length; i++) {
+            if (
+                keccak256(bytes(product[i].productID)) ==
+                keccak256(bytes(_productID))
+            ) {
+                for (uint256 j = i; j < product.length - 1; j++) {
+                    product[j] = product[j + 1];
+                }
+                product.pop();
+                productExist[getOwnerMANU()][_productID] = false;
+                break;
+            }
+        }
     }
 
     function getAllMedicine()
@@ -1252,17 +1292,6 @@ contract ForDistributor {
     verifyOperation internal verifyOp;
     SCMOwner internal ownerContract;
     address payable private ownerDIS;
-    /*
-     struct Product {
-        string productName;
-        string productInfo;
-        uint256 productStock;
-        uint256 price;
-        string productID;
-        string medicineID;
-        string MANid;
-    }
-    */
 
     struct DProduct {
         string productName;
@@ -1280,25 +1309,33 @@ contract ForDistributor {
         string location;
         string distributorID;
     }
-    //mapping(address => VerifiedDistributor[]) internal verifiedDistributors;
+
     mapping(address => DProduct[]) internal forDistributedProduct;
-    //mapping(address => Product[]) internal registeredProducts;
     mapping(address => mapping(string => bool)) private DProductExists;
     event AddDProduct(address indexed _product, DProduct dproduct);
+    event DProductSold(
+        address indexed seller,
+        address indexed buyer,
+        string productID,
+        uint256 stock,
+        uint256 newStock
+    );
 
     constructor(
         address _ownerContractAddress,
         address _verifyOp,
-        address _forManufacturer
+        address _forManufacturer,
+        address _forDistributor
     ) {
         verifyOp = verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
+        forManufacturer = ForManufacturer(_forManufacturer);
 
         require(
-            verifyOp.isDistributorVerified(getOwnerAddress(), _forManufacturer),
+            verifyOp.isDistributorVerified(getOwnerAddress(), _forDistributor),
             "Distributor Not Found."
         );
-        setOwnerDIS(payable(address(_forManufacturer)));
+        setOwnerDIS(payable(address(_forDistributor)));
     }
 
     modifier onlyDistributor() {
@@ -1306,7 +1343,7 @@ contract ForDistributor {
         _;
     }
 
-    function getOwnerDIS() internal view returns (address) {
+    function getOwnerDIS() public view returns (address) {
         return payable(address(ownerDIS));
     }
 
@@ -1318,71 +1355,20 @@ contract ForDistributor {
         return ownerContract.getOwnerAddress();
     }
 
-    /*
-        function listenToEvents() internal {
-        verifyOperation.VerifiedDistributor[] memory vd = verifyOp.getAllVDistributor(getOwnerAddress());
-        for(uint256 i=0;i<vd.length;i++){
-            VerifiedDistributor memory tempVD = VerifiedDistributor(
-                vd[i].distributorAddress,
-                vd[i].distributorName,
-                vd[i].location,
-                vd[i].distributorID
-            );
-            verifiedDistributors[getOwnerDIS()].push(tempVD);
-        }
-        ForManufacturer.Product[] memory prod = forManufacturer.getAllProduct();
-        for (uint256 i = 0; i < prod.length; i++) {
-            Product memory tempProd = Product(
-                prod[i].productName,
-                prod[i].productInfo,
-                prod[i].productStock,
-                prod[i].price,
-                prod[i].productID,
-                prod[i].medicineID,
-                prod[i].MANid
-            );
-            registeredProducts[getOwnerDIS()].push(tempProd);
-        }
+    function getOwnerMANU() internal view returns (address) {
+        return forManufacturer.getOwnerMANU();
     }
 
-    function getProductsFromManufacturer(uint256 _index)
+    function getAllDProduct(address _owner)
         public
         view
-        onlyDistributor
-        returns (
-            string memory,
-            uint256,
-            uint256,
-            string memory,
-            string memory,
-            string memory
-        )
+        returns (DProduct[] memory)
     {
-        require(
-            _index < registeredProducts[msg.sender].length,
-            "Products From Manufacturer Not exits."
-        );
-        return (
-            registeredProducts[getOwnerDIS()][_index].productName,
-            registeredProducts[getOwnerDIS()][_index].productStock,
-            registeredProducts[getOwnerDIS()][_index].price,
-            registeredProducts[getOwnerDIS()][_index].productID,
-            registeredProducts[getOwnerDIS()][_index].medicineID,
-            registeredProducts[getOwnerDIS()][_index].MANid
-        );
-    }
-    */
-
-    function getAllDProduct() public view returns (DProduct[] memory) {
         DProduct[] memory allDProducts = new DProduct[](
-            forDistributedProduct[getOwnerDIS()].length
+            forDistributedProduct[_owner].length
         );
-        for (
-            uint256 i = 0;
-            i < forDistributedProduct[getOwnerDIS()].length;
-            i++
-        ) {
-            allDProducts[i] = forDistributedProduct[getOwnerDIS()][i];
+        for (uint256 i = 0; i < forDistributedProduct[_owner].length; i++) {
+            allDProducts[i] = forDistributedProduct[_owner][i];
         }
         return allDProducts;
     }
@@ -1393,7 +1379,9 @@ contract ForDistributor {
         view
         returns (bool)
     {
-        ForManufacturer.Product[] memory prod = forManufacturer.getAllProduct();
+        ForManufacturer.Product[] memory prod = forManufacturer.getAllProduct(
+            getOwnerMANU()
+        );
         for (uint256 i = 0; i < prod.length; i++) {
             if (keccak256(bytes(prod[i].productID)) == keccak256(bytes(_ID))) {
                 if (prod[i].productStock >= _stockWant) {
@@ -1411,7 +1399,9 @@ contract ForDistributor {
         view
         returns (string memory)
     {
-        ForManufacturer.Product[] memory prod = forManufacturer.getAllProduct();
+        ForManufacturer.Product[] memory prod = forManufacturer.getAllProduct(
+            getOwnerMANU()
+        );
         for (uint256 i = 0; i < prod.length; i++) {
             if (keccak256(bytes(prod[i].productID)) == keccak256(bytes(_ID))) {
                 if (_x == 0) {
@@ -1438,6 +1428,26 @@ contract ForDistributor {
             requestProducts(_ID, _stock),
             "Product Not Found from Manufacturer."
         );
+        ForManufacturer.Product[] memory product = forManufacturer
+            .getAllProduct(getOwnerAddress());
+        bool productFound = false;
+        for (uint256 i = 0; i < product.length; i++) {
+            if (
+                keccak256(bytes(product[i].productID)) == keccak256(bytes(_ID))
+            ) {
+                require(
+                    product[i].productStock >= _stock,
+                    "Insufficient stock"
+                );
+                productFound = true;
+                forManufacturer.sellProduct(getOwnerMANU(), _ID, _stock);
+                break;
+            }
+        }
+        require(
+            productFound,
+            string(abi.encodePacked("Product not found: ", _ID))
+        );
         DProduct memory dproduct = DProduct({
             productName: getProductDetailsByID(0, _ID),
             productStock: _stock,
@@ -1449,12 +1459,44 @@ contract ForDistributor {
         });
         forDistributedProduct[getOwnerDIS()].push(dproduct);
         emit AddDProduct(getOwnerDIS(), dproduct);
+        DProductExists[getOwnerDIS()][_ID] = true;
     }
 
-    function removeDProduct(string memory _ID) public {
+    function sellDProduct(
+        address seller,
+        string memory _dproductID,
+        uint256 _stock
+    ) public {
+        DProduct[] storage dproduct = forDistributedProduct[seller];
+        bool dproductFound = false;
+        for (uint256 i = 0; i < dproduct.length; i++) {
+            if (
+                keccak256(bytes(dproduct[i].productID)) ==
+                keccak256(bytes(_dproductID))
+            ) {
+                require(
+                    dproduct[i].productStock >= _stock,
+                    "Insufficent Stock."
+                );
+                dproduct[i].productStock -= _stock;
+                emit DProductSold(
+                    seller,
+                    getOwnerDIS(),
+                    _dproductID,
+                    _stock,
+                    dproduct[i].productStock
+                );
+                dproductFound = true;
+                break;
+            }
+        }
+        require(dproductFound, "Product ID Not Found.");
+    }
+
+    function removeDProductByID(string memory _ID) public onlyDistributor {
         DProduct[] storage dp = forDistributedProduct[getOwnerDIS()];
         for (uint256 i = 0; i < dp.length; i++) {
-            if (compareStrings(dp[i].productID, _ID)) {
+            if (keccak256(bytes(dp[i].productID)) == keccak256(bytes(_ID))) {
                 for (uint256 j = i; j < dp.length; j++) {
                     dp[j] = dp[j + 1];
                 }
@@ -1465,15 +1507,6 @@ contract ForDistributor {
         }
     }
 
-    function compareStrings(string memory a, string memory b)
-        internal
-        pure
-        returns (bool)
-    {
-        return (keccak256(abi.encodePacked((a))) ==
-            keccak256(abi.encodePacked((b))));
-    }
-
     //revenue(): compare the price of DProduct from MProduct which products earned
     function revenue() public view returns (uint256) {
         uint256 totalRevenue = 0;
@@ -1482,11 +1515,14 @@ contract ForDistributor {
         for (uint256 i = 0; i < dproduct.length; i++) {
             string memory dproductID = dproduct[i].productID;
             ForManufacturer.Product[] memory mproduct = forManufacturer
-                .getAllProduct();
+                .getAllProduct(getOwnerAddress());
             uint256 priceFromM;
             uint256 stockFromM;
             for (uint256 j = 0; j < mproduct.length; j++) {
-                if (compareStrings(mproduct[j].productID, dproductID)) {
+                if (
+                    keccak256(bytes(mproduct[j].productID)) ==
+                    keccak256(bytes(dproductID))
+                ) {
                     priceFromM = mproduct[j].price;
                     stockFromM = mproduct[j].productStock;
                 }
@@ -1522,15 +1558,6 @@ contract ForRetailer {
     SCMOwner internal ownerContract;
     address payable private ownerRTL;
 
-    struct DProduct {
-        string productName;
-        uint256 productStock;
-        uint256 productPrice;
-        string productID;
-        string medicineID;
-        string MANid;
-        string DISid;
-    }
     struct RProduct {
         string productName;
         uint256 productStock;
@@ -1541,7 +1568,7 @@ contract ForRetailer {
         string DISid;
         string RTLid;
     }
-    mapping(address => DProduct[]) internal forDistributedProduct;
+
     mapping(address => RProduct[]) internal forRetailedProduct;
     mapping(address => mapping(string => bool)) private RProductExists;
     event AddProduct(address indexed _product, RProduct rproduct);
@@ -1549,11 +1576,17 @@ contract ForRetailer {
     constructor(
         address _ownerContractAddress,
         address _verifyOp,
-        address _forDistributor
+        address _forDistributor,
+        address _forRetailer
     ) {
         verifyOp = verifyOperation(_verifyOp);
         ownerContract = SCMOwner(_ownerContractAddress);
         forDistributor = ForDistributor(_forDistributor);
+        require(
+            verifyOp.isRetailerVerified(getOwnerAddress(), _forRetailer),
+            "Retailer Not Found."
+        );
+        setOwnerRTL(payable(address(_forRetailer)));
     }
 
     modifier onlyRetailer() {
@@ -1571,6 +1604,10 @@ contract ForRetailer {
 
     function getOwnerAddress() internal view returns (address) {
         return ownerContract.getOwnerAddress();
+    }
+
+    function getOwnerDIS() internal view returns (address) {
+        return forDistributor.getOwnerDIS();
     }
 
     /*
@@ -1601,12 +1638,14 @@ contract ForRetailer {
         return allProducts;
     }
 
-    function requestProduct(string memory _ID, uint256 _stockWant)
+    function requestDProduct(string memory _ID, uint256 _stockWant)
         internal
         view
         returns (bool)
     {
-        ForDistributor.DProduct[] memory prod = forDistributor.getAllDProduct();
+        ForDistributor.DProduct[] memory prod = forDistributor.getAllDProduct(
+            getOwnerDIS()
+        );
         for (uint256 i = 0; i < prod.length; i++) {
             if (keccak256(bytes(prod[i].productID)) == keccak256(bytes(_ID))) {
                 if (prod[i].productStock >= _stockWant) {
@@ -1624,7 +1663,9 @@ contract ForRetailer {
         view
         returns (string memory)
     {
-        ForDistributor.DProduct[] memory prod = forDistributor.getAllDProduct();
+        ForDistributor.DProduct[] memory prod = forDistributor.getAllDProduct(
+            getOwnerDIS()
+        );
         for (uint256 i = 0; i < prod.length; i++) {
             if (keccak256(bytes(prod[i].productID)) == keccak256(bytes(_ID))) {
                 if (_x == 0) {
