@@ -1571,7 +1571,8 @@ contract ForRetailer {
 
     mapping(address => RProduct[]) internal forRetailedProduct;
     mapping(address => mapping(string => bool)) private RProductExists;
-    event AddProduct(address indexed _product, RProduct rproduct);
+    event AddRProduct(address indexed _product, RProduct rproduct);
+    event RProductSold(address indexed seller, address indexed buyer, string productID, uint256 stock, uint256 newStock);
 
     constructor(
         address _ownerContractAddress,
@@ -1609,24 +1610,6 @@ contract ForRetailer {
     function getOwnerDIS() internal view returns (address) {
         return forDistributor.getOwnerDIS();
     }
-
-    /*
-    function listenToEvents() internal{
-        ForDistributor.DProduct[] memory prod = forDistributor.getAllDProduct();
-        for(uint256 i=0;i<prod.length;i++){
-            DProduct memory tempProd = DProduct(
-                prod[i].productName,
-                prod[i].productStock,
-                prod[i].productPrice,
-                prod[i].productID,
-                prod[i].medicineID,
-                prod[i].MANid,
-                prod[i].DISid
-            );
-            forDistributedProduct[getOwnerRTL()].push(tempProd);
-        }
-    }
-    */
 
     function getRProductAdded() public view returns (RProduct[] memory) {
         RProduct[] memory allProducts = new RProduct[](
@@ -1684,5 +1667,76 @@ contract ForRetailer {
             }
         }
         return "";
+    }
+
+    /*
+         struct RProduct {
+        string productName;
+        uint256 productStock;
+        uint256 productPrice;
+        string productID;
+        string medicineID;
+        string MANid;
+        string DISid;
+        string RTLid;
+    }
+    */
+    function addRProduct(
+        string memory _ID,
+        uint256 _price,
+        uint256 _stock
+    ) public onlyRetailer {
+        require(!RProductExists[getOwnerRTL()][_ID], "Product already Exists.");
+        require(requestDProduct(_ID, _stock), "Product Not Found from Distributor");
+        ForDistributor.DProduct[] memory dproduct = forDistributor.getAllDProduct(getOwnerDIS());
+        bool productFound = false;
+        for(uint256 i=0; i<dproduct.length;i++){
+            if( keccak256(bytes(dproduct[i].productID)) == keccak256(bytes(_ID))){
+                require(dproduct[i].productStock >= _stock, "Insufficient Stock");
+                productFound=true;
+                forDistributor.sellDProduct(getOwnerDIS(), _ID, _stock);
+                break;
+            }
+        }
+        require(productFound, string(abi.encodePacked("Product not found: ", _ID)));
+        RProduct memory rproduct = RProduct({
+            productName: getProductDetailsByID(0, _ID),
+            productStock: _stock,
+            productPrice: _price,
+            productID: _ID,
+            medicineID: getProductDetailsByID(2, _ID),
+            MANid: getProductDetailsByID(3, _ID),
+            DISid: getProductDetailsByID(4, _ID),
+            RTLid: getRetailerID(getOwnerRTL())
+        });
+        forRetailedProduct[getOwnerRTL()].push(rproduct);
+        emit AddRProduct(getOwnerRTL(), rproduct);
+        RProductExists[getOwnerRTL()][_ID] = true;
+    }
+
+    function getRetailerID(address _retailerAddress) internal view returns(string memory){
+        string memory retailerID;
+        verifyOperation.VerifiedRetailer[] memory vr = verifyOp.getAllVRetailer(getOwnerAddress());
+        for(uint256 i=0;i<vr.length;i++){
+            if(vr[i].retailerAddress == _retailerAddress){
+                retailerID = vr[i].retailerID;
+                break;
+            }
+        }
+        return (retailerID);
+    }
+
+    function removeRProductByID(string memory _ID) public onlyRetailer{
+        RProduct[] storage rp = forRetailedProduct[getOwnerRTL()];
+        for(uint256 i=0; i< rp.length;i++){
+            if (keccak256(bytes(rp[i].productID)) == keccak256(bytes(_ID))) {
+                for (uint256 j = i; j < rp.length; j++) {
+                    rp[j] = rp[j + 1];
+                }
+                rp.pop();
+                RProductExists[getOwnerRTL()][_ID] = false;
+                break;
+            }
+        }
     }
 }
