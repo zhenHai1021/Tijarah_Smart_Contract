@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
@@ -211,7 +210,7 @@ contract ContractB {
             }
         }
         require(productFound, string(abi.encodePacked("Product not found: ", _ID)));
-         userProductsB[msg.sender].push(
+        userProductsB[msg.sender].push(
             ProductB(_ID, getProductNameByID(_ID), _price, _stock)
         );
         productExistsB[msg.sender][_ID] = true;
@@ -232,6 +231,10 @@ contract ContractB {
         }
     }
 
+    function getProduct(address _owner) public view returns (ContractA.Product[] memory) {
+        return contractA.getUserProducts(_owner);
+    }
+
     function compareStrings(string memory a, string memory b)
         internal
         pure
@@ -240,5 +243,4 @@ contract ContractB {
         return (keccak256(abi.encodePacked((a))) ==
             keccak256(abi.encodePacked((b))));
     }
-
 }
