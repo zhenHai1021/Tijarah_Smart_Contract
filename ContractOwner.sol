@@ -623,7 +623,9 @@ contract ManufacturerOperation is SCMOwner {
 }
 
 contract DistributorOperation is SCMOwner {
-    constructor() {}
+    constructor() {
+        registerDistributor(0x78731D3Ca6b7E34aC0F824c42a7cC18A495cabaB, "Distributor A", "Kuala Kangsar");
+    }
 
     function registerDistributor(
         address _distributorAddress,
@@ -656,7 +658,9 @@ contract DistributorOperation is SCMOwner {
 }
 
 contract RetailerOperation is SCMOwner {
-    constructor() {}
+    constructor() {
+        registerRetailer(0x617F2E2fD72FD9D5503197092aC168c91465E7f2, "Retailer A", "Kuala Selangor");
+    }
 
     function registerRetailer(
         address _retailerAddress,
@@ -696,8 +700,10 @@ contract verifyOperation is
     RetailerOperation
 {
     constructor() {
-        approveManufacturer(0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2);
         approveSupplier(0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db);
+        approveManufacturer(0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2);
+        approveDistributor(0x78731D3Ca6b7E34aC0F824c42a7cC18A495cabaB);
+        approveRetailer(0x617F2E2fD72FD9D5503197092aC168c91465E7f2);
     }
 
     function approveSupplier(address _supplierAddress) public onlyOwner {
@@ -1429,7 +1435,7 @@ contract ForDistributor {
             "Product Not Found from Manufacturer."
         );
         ForManufacturer.Product[] memory product = forManufacturer
-            .getAllProduct(getOwnerAddress());
+            .getAllProduct(getOwnerMANU());
         bool productFound = false;
         for (uint256 i = 0; i < product.length; i++) {
             if (
@@ -1669,18 +1675,6 @@ contract ForRetailer {
         return "";
     }
 
-    /*
-         struct RProduct {
-        string productName;
-        uint256 productStock;
-        uint256 productPrice;
-        string productID;
-        string medicineID;
-        string MANid;
-        string DISid;
-        string RTLid;
-    }
-    */
     function addRProduct(
         string memory _ID,
         uint256 _price,
@@ -1738,5 +1732,9 @@ contract ForRetailer {
                 break;
             }
         }
+    }
+
+    function sellRProduct(string memory _ID) public {
+        
     }
 }
